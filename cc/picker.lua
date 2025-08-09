@@ -28,6 +28,10 @@ local base = r.signal(c.Color:new(0, 1, 0, c.Srgb))
 local buttons = {}
 ---@type Slider[]
 local sliders = {}
+---@class SliderMeta
+---@field property ColorProperty
+---@field index number
+---@type SliderMeta[]
 local slidersMeta = {}
 local color_props = {}
 local active_slider = r.signal(1)
@@ -56,8 +60,16 @@ end
 ---@field rotate boolean|nil
 ---@field min number|nil
 ---@field max number|nil
+---@field gradient_1 fun(a: number, b: number, c: number): number, number, number
+---@field gradient_2 fun(a: number, b: number, c: number): number, number, number
 
 ---@class ColorProperty
+---@field inner fun(): Color
+---@field colorSpace ColorSpace
+---@field properties ColorPropertyConfig[]
+---@field y number
+---@field increment fun(i: number)
+---@field decrement fun(i: number)
 local ColorProperty = {}
 
 ---@param name string
@@ -71,7 +83,10 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
     return converted
   end)
 
+  local slider_offset = #sliders
+
   local o = {
+    inner = inner,
     colorSpace = colorSpace,
     properties = properties,
     y = y,
@@ -95,6 +110,7 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
       end
 
       base(value:clone())
+      active_slider(slider_offset + i)
     end,
     decrement = function(i)
       local value = inner()
@@ -115,6 +131,7 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
       end
 
       base(value:clone())
+      active_slider(slider_offset + i)
     end
   }
 
@@ -201,19 +218,37 @@ end
 
 color_props[#color_props + 1] = ColorProperty:new("RGB", {
   {
-    name = "R",
+    name       = "R",
     multiplier = 255,
-    dp = 0,
+    dp         = 0,
+    gradient_1 = function(_, _, _)
+      return 0, 0, 0
+    end,
+    gradient_2 = function(_, _, _)
+      return 1, 0, 0
+    end
   },
   {
     name = "G",
     multiplier = 255,
     dp = 0,
+    gradient_1 = function(_, _, _)
+      return 0, 0, 0
+    end,
+    gradient_2 = function(_, _, _)
+      return 0, 1, 0
+    end
   },
   {
     name = "B",
     multiplier = 255,
     dp = 0,
+    gradient_1 = function(_, _, _)
+      return 0, 0, 0
+    end,
+    gradient_2 = function(_, _, _)
+      return 0, 0, 1
+    end
   }
 }, 1, c.Srgb, function(rgb)
   return string.format("#%02X%02X%02X", rgb[1] * 255, rgb[2] * 255, rgb[3] * 255)
@@ -224,16 +259,34 @@ color_props[#color_props + 1] = ColorProperty:new("HSL", {
     rotate = true,
     max = 360,
     dp = 1,
+    gradient_1 = function(_, _, _)
+      return 0, 100, 50
+    end,
+    gradient_2 = function(_, _, _)
+      return 360, 100, 50
+    end
   },
   {
     name = "S",
     max = 100,
     dp = 1,
+    gradient_1 = function(h, _, l)
+      return h, 0, l
+    end,
+    gradient_2 = function(h, _, l)
+      return h, 100, l
+    end
   },
   {
     name = "L",
     max = 100,
     dp = 1,
+    gradient_1 = function(h, s, _)
+      return h, s, 0
+    end,
+    gradient_2 = function(h, s, _)
+      return h, s, 100
+    end
   }
 }, 6, c.Hsl)
 color_props[#color_props + 1] = ColorProperty:new("OKLCH", {
@@ -241,18 +294,36 @@ color_props[#color_props + 1] = ColorProperty:new("OKLCH", {
     name = "L",
     dp = 2,
     step = 0.01,
+    gradient_1 = function(_, c, h)
+      return 0, c, h
+    end,
+    gradient_2 = function(_, c, h)
+      return 1, c, h
+    end
   },
   {
     name = "C",
     max = 0.4,
     dp = 2,
     step = 0.01,
+    gradient_1 = function(l, _, h)
+      return l, 0, h
+    end,
+    gradient_2 = function(l, _, h)
+      return l, 0.4, h
+    end
   },
   {
     name = "H",
     rotate = true,
     max = 360,
     dp = 1,
+    gradient_1 = function(l, c, _)
+      return l, c, 0
+    end,
+    gradient_2 = function(l, c, _)
+      return l, c, 360
+    end
   }
 }, 11, c.Oklch)
 
@@ -266,6 +337,30 @@ local exit_button = Button:new(
   end
 )
 buttons[#buttons + 1] = exit_button
+
+r.effect(function()
+  local meta = slidersMeta[active_slider()]
+
+  -- Optimisation because gradient won't change while slider is active
+  r.pauseTracking()
+  local value = meta.property.inner()
+  r.resumeTracking()
+
+  local single_prop = meta.property.properties[meta.index]
+  local g1x, g1y, g1z = single_prop.gradient_1(value[1], value[2], value[3])
+  local g2x, g2y, g2z = single_prop.gradient_2(value[1], value[2], value[3])
+
+  for i = 1, #GRADIENT_COLORS do
+    local frac = (i - 1) / (#GRADIENT_COLORS - 1)
+    local x = g1x + (g2x - g1x) * frac
+    local y = g1y + (g2y - g1y) * frac
+    local z = g1z + (g2z - g1z) * frac
+    local col = c.Color:new(x, y, z, meta.property.colorSpace)
+    local srgb = col:convert(c.Srgb)
+    srgb:clip()
+    term.setPaletteColor(GRADIENT_COLORS[i], srgb[1], srgb[2], srgb[3])
+  end
+end)
 
 -- Full redraw
 r.effect(function()
@@ -307,15 +402,29 @@ r.effect(function()
 end)
 
 r.effect(function()
+  -- Clear previuos slider
   local slider = sliders[previous_slider]
   slider.window.setBackgroundColor(BACKGROUND_COLOR)
   slider.window.setCursorPos(slider.x, slider.y)
   slider.window.write(string.rep(" ", slider.width))
 
+  -- Draw new slider
   slider = sliders[active_slider()]
   slider.window.setBackgroundColor(colors.lightGray)
   slider.window.setCursorPos(slider.x, slider.y)
-  slider.window.write(string.rep(" ", slider.width))
+
+  local splits = {}
+  for i = 0, #GRADIENT_COLORS do
+    splits[i + 1] = math.floor(slider.width * i / (#GRADIENT_COLORS))
+  end
+
+  for i = 1, #splits - 1 do
+    slider.window.setBackgroundColor(GRADIENT_COLORS[i])
+    slider.window.setCursorPos(slider.x + splits[i], slider.y)
+    slider.window.write(string.rep(" ", splits[i + 1] - splits[i]))
+  end
+
+  -- slider.window.write(string.rep(" ", slider.width))
 
   previous_slider = active_slider()
 end)
