@@ -5,6 +5,7 @@ local Slider = require("slider")
 
 local TEXT_COLOR = colors.white
 local BACKGROUND_COLOR = colors.black
+local PICKER_COLOR = colors.red
 local GRADIENT_COLORS = {
   colors.magenta,
   colors.lightBlue,
@@ -33,7 +34,6 @@ local sliders = {}
 ---@field index number
 ---@type SliderMeta[]
 local slidersMeta = {}
-local color_props = {}
 local active_slider = r.signal(1)
 local previous_slider = 1
 
@@ -216,7 +216,7 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
   return setmetatable(o, self)
 end
 
-color_props[#color_props + 1] = ColorProperty:new("RGB", {
+ColorProperty:new("RGB", {
   {
     name       = "R",
     multiplier = 255,
@@ -253,7 +253,7 @@ color_props[#color_props + 1] = ColorProperty:new("RGB", {
 }, 1, c.Srgb, function(rgb)
   return string.format("#%02X%02X%02X", rgb[1] * 255, rgb[2] * 255, rgb[3] * 255)
 end)
-color_props[#color_props + 1] = ColorProperty:new("HSL", {
+ColorProperty:new("HSL", {
   {
     name = "H",
     rotate = true,
@@ -289,7 +289,7 @@ color_props[#color_props + 1] = ColorProperty:new("HSL", {
     end
   }
 }, 6, c.Hsl)
-color_props[#color_props + 1] = ColorProperty:new("OKLCH", {
+ColorProperty:new("OKLCH", {
   {
     name = "L",
     dp = 2,
@@ -362,7 +362,7 @@ r.effect(function()
   end
 end)
 
--- Full redraw
+-- Full redraw on resize
 r.effect(function()
   term.setBackgroundColor(BACKGROUND_COLOR)
   term.clear()
@@ -374,6 +374,7 @@ r.effect(function()
   exit_button:draw()
 end)
 
+-- Draw picked color around border
 r.effect(function()
   term.setCursorPos(1, slider_window.getSize())
 
@@ -381,8 +382,8 @@ r.effect(function()
   local rgb = value:convert(c.Srgb)
   rgb:clip()
 
-  term.setPaletteColor(colors.red, rgb[1], rgb[2], rgb[3])
-  term.setBackgroundColor(colors.red)
+  term.setPaletteColor(PICKER_COLOR, rgb[1], rgb[2], rgb[3])
+  term.setBackgroundColor(PICKER_COLOR)
   term.setCursorPos(1, 1)
   term.write(string.rep(" ", width() - 1))
 
@@ -497,6 +498,10 @@ while keep_running do
 end
 
 -- Reset
+for i = 1, #GRADIENT_COLORS do
+  term.setPaletteColor(GRADIENT_COLORS[i], term.nativePaletteColor(GRADIENT_COLORS[i]))
+end
+term.setPaletteColor(PICKER_COLOR, term.nativePaletteColor(PICKER_COLOR))
 term.setTextColor(colors.white)
 term.setBackgroundColor(colors.black)
 term.setCursorPos(1, 1)
