@@ -1,14 +1,11 @@
----@class Button
+---@class Slider
 ---@field window ccTweaked.term.Redirect|ccTweaked.peripherals.Monitor
----@field text string
 ---@field x number
 ---@field y number
 ---@field width number
 ---@field height number
----@field action fun(x: number, y: number)
----@field backgroundColor integer
----@field textColor integer
-local Button = {}
+---@field action fun(value: number)
+local Slider = {}
 
 -- From PrimeUI
 ---@return number, number
@@ -24,46 +21,33 @@ local function getWindowPos(win, x, y)
 end
 
 ---@param window ccTweaked.term.Redirect|ccTweaked.peripherals.Monitor
----@param text string
 ---@param x number
 ---@param y number
 ---@param action function
----@param backgroundColor string|nil
----@param textColor string|nil
----@param width number|nil
----@param height number|nil
-function Button:new(window, text, x, y, action, backgroundColor, textColor, width, height)
+---@param width number
+---@param height number
+function Slider:new(window, x, y, action, width, height)
   local o = {
     window = window,
-    text = text,
     x = x,
     y = y,
     action = action,
-    backgroundColor = backgroundColor or colors.black,
-    textColor = textColor or colors.white,
-    width = width or string.len(text),
-    height = height or 1,
+    width = width,
+    height = height,
   }
 
   self.__index = self
   return setmetatable(o, self)
 end
 
-function Button:draw()
-  self.window.setBackgroundColor(self.backgroundColor)
-  self.window.setTextColor(self.textColor)
-  self.window.setCursorPos(self.x, self.y)
-  self.window.write(self.text)
-end
-
 ---@param clickX number
 ---@param clickY number
 ---@return boolean
-function Button:mouseCheck(clickX, clickY)
+function Slider:mouseCheck(clickX, clickY)
   local x, y = getWindowPos(self.window, self.x, self.y)
 
   if clickX >= x and clickX < x + self.width and clickY >= y and clickY < y + self.height then
-    self.action(clickX - x, clickY - y)
+    self.action((clickX - x) / (self.width - 1))
     return true
   end
 
@@ -74,11 +58,11 @@ end
 ---@param y number
 ---@param width number
 ---@param height number
-function Button:reposition(x, y, width, height)
+function Slider:reposition(x, y, width, height)
   self.x = x
   self.y = y
   self.width = width
   self.height = height
 end
 
-return Button
+return Slider

@@ -52,7 +52,9 @@ local function lin_to_srgb(x)
 end
 
 ---@class Srgb: ColorSpace
-local Srgb = {}
+local Srgb = {
+  name = "Srgb"
+}
 
 ---@param r number
 ---@param g number
@@ -142,7 +144,9 @@ local function rgb_to_hsl(r, g, b)
 end
 
 ---@class Hsl
-local Hsl = {}
+local Hsl = {
+  name = "Hsl"
+}
 
 ---@param r number
 ---@param g number
@@ -197,7 +201,9 @@ local OKLAB_LMS_TO_LAB = {
 }
 
 ---@class Oklab
-local Oklab = {}
+local Oklab = {
+  name = "Oklab"
+}
 
 ---@param r number
 ---@param g number
@@ -250,7 +256,9 @@ local function lch_to_lab(l, c, h)
 end
 
 ---@class Oklch
-local Oklch = {}
+local Oklch = {
+  name = "Oklch"
+}
 
 ---@param r number
 ---@param g number
@@ -298,9 +306,25 @@ end
 ---@param toSpace ColorSpace
 ---@return Color
 function Color:convert(toSpace)
+  if self.space == toSpace then
+    return self
+  end
+
   local r, g, b = self.space:toLinear(self[1], self[2], self[3])
   r, g, b = toSpace:fromLinear(r, g, b)
   return Color:new(r, g, b, toSpace)
+end
+
+function Color:clip()
+  local a, b, c = self.space:clip(self[1], self[2], self[3])
+  self[1] = a
+  self[2] = b
+  self[3] = c
+end
+
+---@return Color
+function Color:clone()
+  return Color:new(self[1], self[2], self[3], self.space)
 end
 
 return {
