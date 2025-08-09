@@ -410,8 +410,6 @@ r.effect(function()
 
   -- Draw new slider
   slider = sliders[active_slider()]
-  slider.window.setBackgroundColor(colors.lightGray)
-  slider.window.setCursorPos(slider.x, slider.y)
 
   local splits = {}
   for i = 0, #GRADIENT_COLORS do
@@ -423,8 +421,6 @@ r.effect(function()
     slider.window.setCursorPos(slider.x + splits[i], slider.y)
     slider.window.write(string.rep(" ", splits[i + 1] - splits[i]))
   end
-
-  -- slider.window.write(string.rep(" ", slider.width))
 
   previous_slider = active_slider()
 end)
