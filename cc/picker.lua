@@ -23,7 +23,7 @@ local GRADIENT_COLORS = {
 
 local holding_shift = false
 local keep_running = true
-local base = r.signal(c.Color:new(0, 1, 0, c.Srgb))
+local base = r.signal(c.Color:new(1, 0, 0, c.Srgb))
 
 ---@type Button[]
 local buttons = {}
@@ -338,32 +338,9 @@ local exit_button = Button:new(
 )
 buttons[#buttons + 1] = exit_button
 
-r.effect(function()
-  local meta = slidersMeta[active_slider()]
-
-  -- Optimisation because gradient won't change while slider is active
-  r.pauseTracking()
-  local value = meta.property.inner()
-  r.resumeTracking()
-
-  local single_prop = meta.property.properties[meta.index]
-  local g1x, g1y, g1z = single_prop.gradient_1(value[1], value[2], value[3])
-  local g2x, g2y, g2z = single_prop.gradient_2(value[1], value[2], value[3])
-
-  for i = 1, #GRADIENT_COLORS do
-    local frac = (i - 1) / (#GRADIENT_COLORS - 1)
-    local x = g1x + (g2x - g1x) * frac
-    local y = g1y + (g2y - g1y) * frac
-    local z = g1z + (g2z - g1z) * frac
-    local col = c.Color:new(x, y, z, meta.property.colorSpace)
-    local srgb = col:convert(c.Srgb)
-    srgb:clip()
-    term.setPaletteColor(GRADIENT_COLORS[i], srgb[1], srgb[2], srgb[3])
-  end
-end)
 
 -- Full redraw on resize
-r.effect(function()
+local function full_draw()
   term.setBackgroundColor(BACKGROUND_COLOR)
   term.clear()
 
@@ -372,10 +349,10 @@ r.effect(function()
 
   exit_button:reposition(width(), exit_button.y, 1, 1)
   exit_button:draw()
-end)
+end
 
 -- Draw picked color around border
-r.effect(function()
+local function draw_color_border()
   term.setCursorPos(1, slider_window.getSize())
 
   local value = base()
@@ -400,9 +377,9 @@ r.effect(function()
   -- Debug
   -- term.setCursorPos(1, 1)
   -- term.write(value.space.name .. ":" .. value[1] .. ", " .. value[2] .. ", " .. value[3])
-end)
+end
 
-r.effect(function()
+local function draw_slider()
   -- Clear previous slider
   local slider = sliders[previous_slider]
   slider.window.setBackgroundColor(BACKGROUND_COLOR)
@@ -424,7 +401,37 @@ r.effect(function()
   end
 
   previous_slider = active_slider()
-end)
+end
+
+-- Set slider color palette
+local function set_slider_palette()
+  local meta = slidersMeta[active_slider()]
+
+  -- Optimisation because gradient won't change while slider is active
+  r.pauseTracking()
+  local value = meta.property.inner()
+  r.resumeTracking()
+
+  local single_prop = meta.property.properties[meta.index]
+  local g1x, g1y, g1z = single_prop.gradient_1(value[1], value[2], value[3])
+  local g2x, g2y, g2z = single_prop.gradient_2(value[1], value[2], value[3])
+
+  for i = 1, #GRADIENT_COLORS do
+    local frac = (i - 1) / (#GRADIENT_COLORS - 1)
+    local x = g1x + (g2x - g1x) * frac
+    local y = g1y + (g2y - g1y) * frac
+    local z = g1z + (g2z - g1z) * frac
+    local col = c.Color:new(x, y, z, meta.property.colorSpace)
+    local srgb = col:convert(c.Srgb)
+    srgb:clip()
+    term.setPaletteColor(GRADIENT_COLORS[i], srgb[1], srgb[2], srgb[3])
+  end
+end
+
+r.effect(full_draw)
+r.effect(draw_color_border)
+r.effect(draw_slider)
+r.effect(set_slider_palette)
 
 while keep_running do
   local ev = { os.pullEvent() }
