@@ -403,7 +403,7 @@ r.effect(function()
 end)
 
 r.effect(function()
-  -- Clear previuos slider
+  -- Clear previous slider
   local slider = sliders[previous_slider]
   slider.window.setBackgroundColor(BACKGROUND_COLOR)
   slider.window.setCursorPos(slider.x, slider.y)
