@@ -51,6 +51,36 @@ local function lin_to_srgb(x)
   end
 end
 
+
+---@class Linear: ColorSpace
+local Linear = {
+  name = "Linear"
+}
+
+---@param r number
+---@param g number
+---@param b number
+---@return number, number, number
+function Linear:fromLinear(r, g, b)
+  return r, g, b
+end
+
+---@param r number
+---@param g number
+---@param b number
+---@return number, number, number
+function Linear:toLinear(r, g, b)
+  return r, g, b
+end
+
+---@param r number
+---@param g number
+---@param b number
+---@return number, number, number
+function Linear:clip(r, g, b)
+  return math.min(math.max(r, 0), 1), math.min(math.max(g, 0), 1), math.min(math.max(b, 0), 1)
+end
+
 ---@class Srgb: ColorSpace
 local Srgb = {
   name = "Srgb"
@@ -143,7 +173,7 @@ local function rgb_to_hsl(r, g, b)
   return hue, sat * 100, light * 100
 end
 
----@class Hsl
+---@class Hsl: ColorSpace
 local Hsl = {
   name = "Hsl"
 }
@@ -200,7 +230,7 @@ local OKLAB_LMS_TO_LAB = {
   { 0.025904037, 0.78277177, -0.80867577 },
 }
 
----@class Oklab
+---@class Oklab: ColorSpace
 local Oklab = {
   name = "Oklab"
 }
@@ -255,7 +285,7 @@ local function lch_to_lab(l, c, h)
   return l, a, b
 end
 
----@class Oklch
+---@class Oklch: ColorSpace
 local Oklch = {
   name = "Oklch"
 }
@@ -329,6 +359,7 @@ end
 
 return {
   Color = Color,
+  Linear = Linear,
   Srgb = Srgb,
   Hsl = Hsl,
   Oklab = Oklab,
