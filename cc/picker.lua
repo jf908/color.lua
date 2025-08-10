@@ -199,6 +199,7 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
 
     local abc = inner()
 
+    -- Draw values
     for i = 1, 3 do
       local mult = properties[i].multiplier or 1
       slider_window.setCursorPos(3, y + i)
@@ -206,6 +207,7 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
       slider_window.write(padEnd(formatted, 7))
     end
 
+    -- Draw alt name
     if altName then
       slider_window.setCursorPos(4 + #name, y)
       slider_window.write(padEnd(altName(abc), 7))
@@ -443,15 +445,19 @@ while keep_running do
         break
       end
     end
-  end
 
-  if ev[1] == "mouse_drag" and ev[2] == 1 then
     for i = 1, #sliders do
       local slider = sliders[i]
       if slider:mouseCheck(ev[3], ev[4]) then
+        active_slider(i)
         break
       end
     end
+  end
+
+  if ev[1] == "mouse_drag" and ev[2] == 1 then
+    local slider = sliders[active_slider()]
+    slider:mouseCheck(ev[3], ev[4])
   end
 
   if ev[1] == "key" then
