@@ -1,6 +1,7 @@
 --[[
  * color.lua
- * Library based on https://github.com/linebender/color
+ *
+ * Derived from https://github.com/linebender/color (Apache 2.0 / MIT)
 ]]
 
 ---@class ColorSpace
