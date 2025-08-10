@@ -22,6 +22,7 @@ local GRADIENT_COLORS = {
 }
 
 local holding_shift = false
+local holding_ctrl = false
 local keep_running = true
 local base = r.signal(c.Color:new(1, 0, 0, c.Srgb))
 
@@ -95,8 +96,11 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
 
       local mult = properties[i].multiplier or 1
       local step = properties[i].step or (1 / mult)
+
       if holding_shift then
         step = step * 10
+      elseif holding_ctrl and properties[i].dp > 0 then
+        step = step / 10
       end
       value[i] = value[i] + step
 
@@ -118,6 +122,8 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
       local step = properties[i].step or (1 / mult)
       if holding_shift then
         step = step * 10
+      elseif holding_ctrl and properties[i].dp > 0 then
+        step = step / 10
       end
       value[i] = value[i] - step
 
@@ -294,7 +300,7 @@ ColorProperty:new("HSL", {
 ColorProperty:new("OKLCH", {
   {
     name = "L",
-    dp = 2,
+    dp = 3,
     step = 0.01,
     gradient_1 = function(_, c, h)
       return 0, c, h
@@ -306,7 +312,7 @@ ColorProperty:new("OKLCH", {
   {
     name = "C",
     max = 0.4,
-    dp = 2,
+    dp = 3,
     step = 0.01,
     gradient_1 = function(l, _, h)
       return l, 0, h
@@ -465,32 +471,24 @@ while keep_running do
 
     if key == "q" then
       keep_running = false
-    end
-
-    if key == "leftShift" then
+    elseif key == "leftShift" then
       holding_shift = true
-    end
-
-    if key == "up" then
+    elseif key == "leftCtrl" then
+      holding_ctrl = true
+    elseif key == "up" then
       local index = active_slider()
       if index > 1 then
         active_slider(index - 1)
       end
-    end
-
-    if key == "down" then
+    elseif key == "down" then
       local index = active_slider()
       if index < #sliders then
         active_slider(index + 1)
       end
-    end
-
-    if key == "left" then
+    elseif key == "left" then
       local meta = slidersMeta[active_slider()]
       meta.property.decrement(meta.index)
-    end
-
-    if key == "right" then
+    elseif key == "right" then
       local meta = slidersMeta[active_slider()]
       meta.property.increment(meta.index)
     end
@@ -498,8 +496,11 @@ while keep_running do
 
   if ev[1] == "key_up" then
     local key = keys.getName(ev[2])
+
     if key == "leftShift" then
       holding_shift = false
+    elseif key == "leftCtrl" then
+      holding_ctrl = false
     end
   end
 
