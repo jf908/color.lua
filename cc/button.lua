@@ -72,13 +72,17 @@ end
 
 ---@param x number
 ---@param y number
----@param width number
----@param height number
+---@param width number|nil
+---@param height number|nil
 function Button:reposition(x, y, width, height)
   self.x = x
   self.y = y
-  self.width = width
-  self.height = height
+  if width ~= nil then
+    self.width = width
+  end
+  if height ~= nil then
+    self.height = height
+  end
 end
 
 return Button

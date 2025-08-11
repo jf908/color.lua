@@ -37,6 +37,7 @@ local sliders = {}
 local slidersMeta = {}
 local active_slider = r.signal(1)
 local previous_slider = 1
+local to_reposition = {}
 
 local w, h = term.getSize()
 local width = r.signal(w)
@@ -138,6 +139,11 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
 
       base(value:clone())
       active_slider(slider_offset + i)
+    end,
+    reposition = function()
+      for i = 1, #to_reposition do
+        to_reposition[i]()
+      end
     end
   }
 
@@ -162,22 +168,29 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
     )
     buttons[#buttons]:draw()
 
-    buttons[#buttons + 1] = Button:new(
+    local btn_index = #buttons + 1
+    local btn_y = y + i
+    buttons[btn_index] = Button:new(
       slider_window,
       "+",
       width() - 5,
-      y + i,
+      btn_y,
       function()
         o.increment(i)
       end
     )
-    buttons[#buttons]:draw()
+    buttons[btn_index]:draw()
+    to_reposition[#to_reposition + 1] = function()
+      buttons[btn_index]:reposition(width() - 5, btn_y)
+      buttons[btn_index]:draw()
+    end
 
     local slider_index = #sliders + 1
+    local slider_y = y + i
     sliders[slider_index] = Slider:new(
       slider_window,
       16,
-      y + i,
+      slider_y,
       function(frac)
         active_slider(slider_index)
 
@@ -196,6 +209,10 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
       property = o,
       index = i,
     }
+
+    to_reposition[#to_reposition + 1] = function()
+      sliders[slider_index]:reposition(16, slider_y, width() - 22, 1)
+    end
   end
 
 
@@ -345,6 +362,10 @@ local exit_button = Button:new(
   end
 )
 buttons[#buttons + 1] = exit_button
+to_reposition[#to_reposition + 1] = function()
+  exit_button:reposition(width(), exit_button.y)
+  exit_button:draw()
+end
 
 
 -- Full redraw on resize
@@ -352,11 +373,12 @@ local function full_draw()
   term.setBackgroundColor(BACKGROUND_COLOR)
   term.clear()
 
+  for i = 1, #to_reposition do
+    to_reposition[i]()
+  end
+
   slider_window.reposition(4, 3, width() - 3, height() - 2)
   slider_window.redraw()
-
-  exit_button:reposition(width(), exit_button.y, 1, 1)
-  exit_button:draw()
 end
 
 -- Draw picked color around border
@@ -387,30 +409,6 @@ local function draw_color_border()
   -- term.write(value.space.name .. ":" .. value[1] .. ", " .. value[2] .. ", " .. value[3])
 end
 
-local function draw_slider()
-  -- Clear previous slider
-  local slider = sliders[previous_slider]
-  slider.window.setBackgroundColor(BACKGROUND_COLOR)
-  slider.window.setCursorPos(slider.x, slider.y)
-  slider.window.write(string.rep(" ", slider.width))
-
-  -- Draw new slider
-  slider = sliders[active_slider()]
-
-  local splits = {}
-  for i = 0, #GRADIENT_COLORS do
-    splits[i + 1] = math.floor(slider.width * i / (#GRADIENT_COLORS))
-  end
-
-  for i = 1, #splits - 1 do
-    slider.window.setBackgroundColor(GRADIENT_COLORS[i])
-    slider.window.setCursorPos(slider.x + splits[i], slider.y)
-    slider.window.write(string.rep(" ", splits[i + 1] - splits[i]))
-  end
-
-  previous_slider = active_slider()
-end
-
 -- Set slider color palette
 local function set_slider_palette()
   local meta = slidersMeta[active_slider()]
@@ -436,10 +434,41 @@ local function set_slider_palette()
   end
 end
 
+local function draw_slider()
+  set_slider_palette()
+
+  -- Clear previous slider
+  local slider = sliders[previous_slider]
+  slider.window.setBackgroundColor(BACKGROUND_COLOR)
+  slider.window.setCursorPos(slider.x, slider.y)
+  slider.window.write(string.rep(" ", slider.width))
+
+  -- Draw new slider
+  slider = sliders[active_slider()]
+
+  local splits = {}
+  for i = 0, #GRADIENT_COLORS do
+    splits[i + 1] = math.floor(slider.width * i / (#GRADIENT_COLORS))
+  end
+
+  for i = 1, #splits - 1 do
+    slider.window.setBackgroundColor(GRADIENT_COLORS[i])
+    slider.window.setCursorPos(slider.x + splits[i], slider.y)
+    slider.window.write(string.rep(" ", splits[i + 1] - splits[i]))
+  end
+
+  previous_slider = active_slider()
+
+  -- Border seems to glitch out without this
+  r.pauseTracking()
+  draw_color_border()
+  r.resumeTracking()
+end
+
+
 r.effect(full_draw)
 r.effect(draw_color_border)
 r.effect(draw_slider)
-r.effect(set_slider_palette)
 
 while keep_running do
   local ev = { os.pullEvent() }
