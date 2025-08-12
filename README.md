@@ -9,6 +9,8 @@ similar purpose.
 In the cc folder you will also find picker.lua, a colour picker program for the Minecraft mod
 [ComputerCraft](https://github.com/cc-tweaked/CC-Tweaked).
 
+<img width="620" height="350" alt="image" src="https://github.com/user-attachments/assets/c1ee91bf-1245-4305-8bf3-2dbce9ac6e8f" />
+
 ## License
 
 Licensed under either of
