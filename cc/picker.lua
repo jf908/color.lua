@@ -24,7 +24,6 @@ local GRADIENT_COLORS = {
 local holding_shift = false
 local holding_ctrl = false
 local keep_running = true
-local base = r.signal(c.Color:new(1, 0, 0, c.Srgb))
 
 ---@type Button[]
 local buttons = {}
@@ -35,9 +34,12 @@ local sliders = {}
 ---@field index number
 ---@type SliderMeta[]
 local slidersMeta = {}
-local active_slider = r.signal(1)
 local previous_slider = 1
-local to_reposition = {}
+---@type (fun(): nil)[]
+local drawables = {}
+
+local base = r.signal(c.Color:new(1, 0, 0, c.Srgb))
+local active_slider = r.signal(1)
 
 local w, h = term.getSize()
 local width = r.signal(w)
@@ -140,24 +142,25 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
       base(value:clone())
       active_slider(slider_offset + i)
     end,
-    reposition = function()
-      for i = 1, #to_reposition do
-        to_reposition[i]()
-      end
-    end
   }
 
-  slider_window.setTextColor(TEXT_COLOR)
-  slider_window.setBackgroundColor(BACKGROUND_COLOR)
+  drawables[#drawables + 1] = function()
+    slider_window.setTextColor(TEXT_COLOR)
+    slider_window.setBackgroundColor(BACKGROUND_COLOR)
 
-  slider_window.setCursorPos(1, y)
-  slider_window.write("<" .. name .. ">")
+    slider_window.setCursorPos(1, y)
+    slider_window.write("<" .. name .. ">")
+
+    for i = 1, #properties do
+      slider_window.setCursorPos(1, y + i)
+      slider_window.write(properties[i].name)
+    end
+  end
 
   for i = 1, #properties do
-    slider_window.setCursorPos(1, y + i)
-    slider_window.write(properties[i].name)
+    local btn_y               = y + i
 
-    buttons[#buttons + 1] = Button:new(
+    local minus_button        = Button:new(
       slider_window,
       "-",
       14,
@@ -166,11 +169,12 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
         o.decrement(i)
       end
     )
-    buttons[#buttons]:draw()
+    buttons[#buttons + 1]     = minus_button
+    drawables[#drawables + 1] = function()
+      minus_button:draw()
+    end
 
-    local btn_index = #buttons + 1
-    local btn_y = y + i
-    buttons[btn_index] = Button:new(
+    local plus_button         = Button:new(
       slider_window,
       "+",
       width() - 5,
@@ -179,15 +183,14 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
         o.increment(i)
       end
     )
-    buttons[btn_index]:draw()
-    to_reposition[#to_reposition + 1] = function()
-      buttons[btn_index]:reposition(width() - 5, btn_y)
-      buttons[btn_index]:draw()
+    drawables[#drawables + 1] = function()
+      plus_button:reposition(width() - 5, btn_y)
+      plus_button:draw()
     end
 
-    local slider_index = #sliders + 1
-    local slider_y = y + i
-    sliders[slider_index] = Slider:new(
+    local slider_index        = #sliders + 1
+    local slider_y            = y + i
+    local slider              = Slider:new(
       slider_window,
       16,
       slider_y,
@@ -205,18 +208,20 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
       width() - 22,
       1
     )
+    sliders[slider_index]     = slider
     slidersMeta[slider_index] = {
       property = o,
       index = i,
     }
 
-    to_reposition[#to_reposition + 1] = function()
-      sliders[slider_index]:reposition(16, slider_y, width() - 22, 1)
+    drawables[#drawables + 1] = function()
+      slider:reposition(16, slider_y, width() - 22, 1)
     end
   end
 
 
-  r.effect(function()
+  -- Redraw values and altName
+  local function draw_on_change()
     slider_window.setTextColor(TEXT_COLOR)
     slider_window.setBackgroundColor(BACKGROUND_COLOR)
 
@@ -230,12 +235,15 @@ function ColorProperty:new(name, properties, y, colorSpace, altName)
       slider_window.write(padEnd(formatted, 7))
     end
 
-    -- Draw alt name
+    -- Draw altName
     if altName then
       slider_window.setCursorPos(4 + #name, y)
       slider_window.write(padEnd(altName(abc), 7))
     end
-  end)
+  end
+
+  drawables[#drawables + 1] = draw_on_change
+  r.effect(draw_on_change)
 
   self.__index = self
   return setmetatable(o, self)
@@ -362,7 +370,7 @@ local exit_button = Button:new(
   end
 )
 buttons[#buttons + 1] = exit_button
-to_reposition[#to_reposition + 1] = function()
+drawables[#drawables + 1] = function()
   exit_button:reposition(width(), exit_button.y)
   exit_button:draw()
 end
@@ -370,15 +378,20 @@ end
 
 -- Full redraw on resize
 local function full_draw()
+  slider_window.setBackgroundColor(BACKGROUND_COLOR)
+  slider_window.clear()
   term.setBackgroundColor(BACKGROUND_COLOR)
   term.clear()
 
-  for i = 1, #to_reposition do
-    to_reposition[i]()
-  end
-
   slider_window.reposition(4, 3, width() - 3, height() - 2)
-  slider_window.redraw()
+
+  -- Pause tracking because we want to only redraw on width/height changes, other redraws are
+  -- handled on a case by case basis
+  r.pauseTracking()
+  for i = 1, #drawables do
+    drawables[i]()
+  end
+  r.resumeTracking()
 end
 
 -- Draw picked color around border
@@ -465,6 +478,7 @@ local function draw_slider()
   r.resumeTracking()
 end
 
+drawables[#drawables + 1] = draw_slider
 
 r.effect(full_draw)
 r.effect(draw_color_border)
